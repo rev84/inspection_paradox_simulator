@@ -73,7 +73,7 @@ calcWait = function(me, buses) {
   for (i = 0, len = buses.length; i < len; i++) {
     bus = buses[i];
     wait = bus - me;
-    if (wait > 0 && (res === null || wait < res)) {
+    if (wait >= 0 && (res === null || wait < res)) {
       res = wait;
     }
   }

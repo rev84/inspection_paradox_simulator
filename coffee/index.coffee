@@ -51,7 +51,7 @@ calcWait = (me, buses)->
   res = null
   for bus in buses
     wait = bus - me
-    res = wait if wait > 0 and (res is null or wait < res)
+    res = wait if wait >= 0 and (res is null or wait < res)
   res = 1 - me if res is null
   res
 
