@@ -2,20 +2,33 @@ window.BORDER_WIDTH = 600
 window.RANK_COUNT = 5
 window.OUTPUT_FREQUENCY = 100
 
-window.average = 0
-window.count = 0
 window.timer = false
 window.bests = []
 window.worsts = []
+window.average = 0
+window.count = 0
 
 $().ready ->
+  $('input[type="checkbox"]').radiocheck()
   $('#start').on 'click', start
+  $('#first').on 'change', changeFirstExplain
+  changeFirstExplain()
 
+changeFirstExplain = ->
+  if $('#first').prop('checked')
+    $('#first_explain').html('バスが来る時間帯の最初にバス停に到着したとする')
+  else
+    $('#first_explain').html('ランダムな時間にバス停に到着したとする（もうバスが来なければ、バスが来る時間帯の終わりまで待つとする）')
 
 start = ->
   if window.timer is false
     window.BUS_COUNT = Number $('#bus_count').val()
     window.TIME_MINUTES = 60 * Number $('#hour').val()
+    window.isFirst = $('#first').prop('checked')
+    window.bests = []
+    window.worsts = []
+    window.average = 0
+    window.count = 0
     window.timer = setInterval(play, 10)
     $('#start').html('ストップ').removeClass('btn-primary').addClass('btn-warning')
   else
@@ -34,25 +47,53 @@ sim = ->
   buses.sort()
   buses
 
+calcWait = (me, buses)->
+  res = null
+  for bus in buses
+    wait = bus - me
+    res = wait if wait > 0 and (res is null or wait < res)
+  res = 1 - me if res is null
+  res
+
+
 add = (buses)->
-  minutes = buses[0]
-  window.average = (window.average * window.count + minutes) / (window.count+1)
+  # 自分が来る時間を決める
+  me = if window.isFirst then 0 else Math.random()
+  wait = calcWait(me, buses)
+
+  window.average = (window.average * window.count + wait) / (window.count+1)
   window.count++
 
   if window.bests.length < window.RANK_COUNT
-    window.bests.push buses
-  else if window.bests[window.bests.length-1][0] > minutes
-    window.bests.push buses
+    window.bests.push {
+      me: me
+      wait: wait
+      buses: buses
+    }
+  else if window.bests[window.bests.length-1]['wait'] > wait
+    window.bests.push {
+      me: me
+      wait: wait
+      buses: buses
+    }
     window.bests.sort (a, b)->
-      a[0] - b[0]
+      a['wait'] - b['wait']
     window.bests.pop()
 
   if window.worsts.length < window.RANK_COUNT
-    window.worsts.push buses
-  else if window.worsts[window.worsts.length-1][0] < minutes
-    window.worsts.push buses
+    window.worsts.push {
+      me: me
+      wait: wait
+      buses: buses
+    }
+  else if window.worsts[window.worsts.length-1]['wait'] < wait
+    window.worsts.push {
+      me: me
+      wait: wait
+      buses: buses
+    }
     window.worsts.sort (a, b)->
-      b[0] - a[0]
+      b['wait'] - a['wait']
     window.worsts.pop()
 
 output = ->
@@ -73,18 +114,19 @@ output = ->
   addLines window.worsts
 
 
-addLines = (buseses, secondFloat = false)->
-  for buses in buseses
+addLines = (results, secondFloat = false)->
+  for result in results
     tr = $('<tr>')
     td = $('<td>')
     borderDiv = $('<div>').addClass('graph').css('width', window.BORDER_WIDTH)
-    for bus in buses
+    for bus in result['buses']
       $(borderDiv).append(
         $('<span>').addClass('point').html('●').css('left', window.BORDER_WIDTH * bus)
       )
+    $(borderDiv).append $('<span>').addClass('point me').html('●').css('left', window.BORDER_WIDTH * result['me'])
     td.append borderDiv
     tr.append td
-    tr.append $('<td>').addClass('right').html(timeFormat(buses[0] * window.TIME_MINUTES, secondFloat))
+    tr.append $('<td>').addClass('right').html(timeFormat(result['wait'] * window.TIME_MINUTES, secondFloat))
     $('tbody').append(tr)
 
 timeFormat = (minutes, secondFloat = false)->
